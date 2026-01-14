@@ -1,0 +1,122 @@
+:root {
+  --bg-a: #0f172a;
+  --bg-b: #15264a;
+  --glow: #8ef0ff;
+  --accent: #ffd166;
+  --text: #e7ecf5;
+  --muted: #9fb1c7;
+  --card: rgba(255, 255, 255, 0.04);
+  --border: rgba(255, 255, 255, 0.12);
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  font-family: 'Space Grotesk', system-ui, sans-serif;
+  color: var(--text);
+  background: radial-gradient(circle at 20% 20%, #1f2f4f, transparent 25%),
+              radial-gradient(circle at 80% 0%, #20335c, transparent 25%),
+              linear-gradient(135deg, var(--bg-a), var(--bg-b));
+  background-attachment: fixed;
+  display: flex;
+  justify-content: center;
+}
+
+.chrome {
+  width: min(1200px, 100%);
+  padding: 18px clamp(16px, 2vw, 32px) 32px;
+}
+
+.hud {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+  padding: 12px 18px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: linear-gradient(120deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.02));
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.35);
+}
+
+.brand {
+  font-family: 'Archivo Black', 'Space Grotesk', sans-serif;
+  letter-spacing: 0.5px;
+  font-size: clamp(18px, 2vw, 22px);
+  color: var(--accent);
+}
+
+.stats span {
+  margin-left: 12px;
+  padding: 6px 10px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.05);
+  font-weight: 600;
+}
+
+.stage {
+  position: relative;
+  display: grid;
+  grid-template-columns: 3fr 1fr;
+  gap: 14px;
+}
+
+#game {
+  width: 100%;
+  height: auto;
+  border-radius: 18px;
+  border: 1px solid var(--border);
+  background: #0b1424;
+  box-shadow: 0 14px 50px rgba(0, 0, 0, 0.45);
+}
+
+.card {
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1px solid var(--border);
+  background: var(--card);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.32);
+}
+
+.controls .title,
+.asset-note .title {
+  font-weight: 700;
+  letter-spacing: 0.4px;
+  margin-bottom: 8px;
+}
+
+.keys div {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 6px;
+  padding: 6px 8px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px dashed var(--border);
+}
+
+.keys span {
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.note {
+  color: var(--muted);
+  margin: 8px 0 0;
+  line-height: 1.4;
+}
+
+.asset-note ul {
+  margin: 0;
+  padding-left: 18px;
+  color: var(--muted);
+  line-height: 1.6;
+}
+
+@media (max-width: 900px) {
+  .stage { grid-template-columns: 1fr; }
+  #game { order: -1; }
+}

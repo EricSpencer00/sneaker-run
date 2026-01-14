@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sidewalk Sprint</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=Archivo+Black&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="chrome">
+    <header class="hud">
+      <div class="brand">Sidewalk Sprint</div>
+      <div class="stats">
+        <span id="distance">0 m</span>
+        <span id="status">Stay clean</span>
+      </div>
+    </header>
+
+    <main class="stage">
+      <canvas id="game" width="960" height="540" aria-label="Endless runner game canvas"></canvas>
+      <div class="card controls">
+        <div class="title">Moves</div>
+        <div class="keys">
+          <div><span>Space / ↑</span><strong>Jump</strong></div>
+          <div><span>↓</span><strong>Slide</strong></div>
+          <div><span>R</span><strong>Restart</strong></div>
+        </div>
+        <p class="note">Two missteps in 15s and the suits grab you. Hard hits end instantly.</p>
+      </div>
+      <div class="card asset-note">
+        <div class="title">Assets</div>
+        <p>Drop webp sprites into the assets folder using these names:</p>
+        <ul>
+          <li>runner.webp</li>
+          <li>chaser.webp</li>
+          <li>car.webp</li>
+          <li>construction_low.webp</li>
+          <li>construction_high.webp</li>
+          <li>bg_suburb.webp</li>
+          <li>bg_city.webp</li>
+        </ul>
+      </div>
+    </main>
+  </div>
+
+  <script src="main.js"></script>
+</body>
+</html>
