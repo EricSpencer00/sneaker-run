@@ -6,13 +6,37 @@ const distanceEl = document.getElementById('distance');
 const statusEl = document.getElementById('status');
 
 const ASSETS = {
-  runner: 'assets/runner.webp',
-  chaser: 'assets/chaser.webp',
+  // Runner animation frames (4 frames)
+  runner1: 'assets/runner_1.webp',
+  runner2: 'assets/runner_2.webp',
+  runner3: 'assets/runner_3.webp',
+  runner4: 'assets/runner_4.webp',
+  // Chaser type 1 (4 frames)
+  chaser1_1: 'assets/chaser1_1.webp',
+  chaser1_2: 'assets/chaser1_2.webp',
+  chaser1_3: 'assets/chaser1_3.webp',
+  chaser1_4: 'assets/chaser1_4.webp',
+  // Chaser type 2 (4 frames)
+  chaser2_1: 'assets/chaser2_1.webp',
+  chaser2_2: 'assets/chaser2_2.webp',
+  chaser2_3: 'assets/chaser2_3.webp',
+  chaser2_4: 'assets/chaser2_4.webp',
+  // Chaser type 3 (4 frames)
+  chaser3_1: 'assets/chaser3_1.webp',
+  chaser3_2: 'assets/chaser3_2.webp',
+  chaser3_3: 'assets/chaser3_3.webp',
+  chaser3_4: 'assets/chaser3_4.webp',
+  // Obstacles
   car: 'assets/car.webp',
   low: 'assets/construction_low.webp',
   high: 'assets/construction_high.webp',
+  // Multiple background areas
   bgSuburb: 'assets/bg_suburb.webp',
-  bgCity: 'assets/bg_city.webp'
+  bgCity: 'assets/bg_city.webp',
+  bgPark: 'assets/bg_park.webp',
+  bgIndustrial: 'assets/bg_industrial.webp',
+  bgDowntown: 'assets/bg_downtown.webp',
+  bgWaterfront: 'assets/bg_waterfront.webp'
 };
 
 const images = {};
@@ -43,7 +67,11 @@ const state = {
   groundY: canvas.height - 90,
   skylineShift: 0,
   curbShift: 0,
-  reason: ''
+  reason: '',
+  animationFrame: 0,
+  animationTimer: 0,
+  currentBgIndex: 0,
+  bgTransitionDistance: 0
 };
 
 const player = {
@@ -54,13 +82,15 @@ const player = {
   vy: 0,
   slideTimer: 0,
   slideDuration: 450,
+  crouching: false,
   color: '#ffd166'
 };
 player.y = state.groundY - player.h;
 
 const chasers = new Array(3).fill(0).map((_, i) => ({
   offset: -120 - i * 50,
-  bob: 0
+  bob: 0,
+  type: (i % 3) + 1 // Cycle through chaser types 1, 2, 3
 }));
 
 const obstacles = [];
@@ -75,9 +105,14 @@ function reset() {
   state.skylineShift = 0;
   state.curbShift = 0;
   state.reason = '';
+  state.animationFrame = 0;
+  state.animationTimer = 0;
+  state.currentBgIndex = 0;
+  state.bgTransitionDistance = 0;
   player.y = state.groundY - player.h;
   player.vy = 0;
   player.slideTimer = 0;
+  player.crouching = false;
   obstacles.length = 0;
   spawnTimer = 0;
   statusEl.textContent = 'Stay clean';
@@ -87,7 +122,7 @@ function spawnObstacle() {
   const types = [
     { key: 'car', w: 160, h: 90, hard: true },
     { key: 'low', w: 140, h: 80, hard: false },
-    { key: 'high', w: 140, h: 200, hard: false }
+    { key: 'high', w: 140, h: 150, hard: false }
   ];
   const pick = types[Math.floor(Math.random() * types.length)];
   const baseY = state.groundY - pick.h;
@@ -122,7 +157,16 @@ function handleInputDown(key) {
   }
   if (!state.playing) return;
   if ((key === ' ' || key === 'arrowup') && onGround()) jump();
-  if (key === 'arrowdown' && onGround()) slide();
+  if (key === 'arrowdown' && onGround()) {
+    player.crouching = true;
+  }
+  if (key === 's' && onGround()) slide();
+}
+
+function handleInputUp(key) {
+  if (key === 'arrowdown') {
+    player.crouching = false;
+  }
 }
 
 function onGround() {
@@ -151,8 +195,10 @@ function updatePlayer(dt) {
 
 function currentPlayerBox() {
   const sliding = player.slideTimer > 0;
-  const h = sliding ? player.h * 0.55 : player.h;
-  const y = sliding ? player.y + player.h - h : player.y;
+  const crouching = player.crouching && onGround();
+  const heightMod = sliding ? 0.55 : (crouching ? 0.7 : 1.0);
+  const h = player.h * heightMod;
+  const y = player.y + player.h - h;
   return { x: player.x, y, w: player.w, h };
 }
 
@@ -189,6 +235,20 @@ function checkCollisions(now) {
 function updateDistance(dt) {
   state.distance += (state.speed * dt) / 5;
   distanceEl.textContent = `${Math.floor(state.distance)} m`;
+  
+  // Update animation frame
+  state.animationTimer += dt * 1000;
+  if (state.animationTimer >= 100) { // Change frame every 100ms
+    state.animationFrame = (state.animationFrame + 1) % 4;
+    state.animationTimer = 0;
+  }
+  
+  // Transition backgrounds every 500m
+  const bgInterval = 500;
+  const newBgIndex = Math.floor(state.distance / bgInterval) % 6;
+  if (newBgIndex !== state.currentBgIndex) {
+    state.currentBgIndex = newBgIndex;
+  }
 }
 
 function drawBackground() {
@@ -197,8 +257,13 @@ function drawBackground() {
   state.skylineShift = (state.skylineShift + skylineSpeed * 0.016) % canvas.width;
   state.curbShift = (state.curbShift + curbSpeed * 0.016) % canvas.width;
 
-  const bgSky = images.bgCity;
-  const bgSub = images.bgSuburb;
+  // Select background based on current area
+  const bgNames = ['bgSuburb', 'bgCity', 'bgPark', 'bgIndustrial', 'bgDowntown', 'bgWaterfront'];
+  const skyBgName = bgNames[state.currentBgIndex];
+  const midBgName = bgNames[(state.currentBgIndex + 1) % 6];
+  
+  const bgSky = images[skyBgName];
+  const bgSub = images[midBgName];
   const groundY = state.groundY + 60;
 
   ctx.fillStyle = '#0d1322';
@@ -237,7 +302,8 @@ function drawTiled(img, shift, y) {
 
 function drawPlayer() {
   const box = currentPlayerBox();
-  const img = images.runner;
+  const frameNum = state.animationFrame + 1; // 1-4
+  const img = images[`runner${frameNum}`];
   if (img) {
     ctx.drawImage(img, box.x - 30, box.y - 20, box.w + 60, box.h + 40);
   } else {
@@ -247,11 +313,12 @@ function drawPlayer() {
 }
 
 function drawChasers(t) {
-  const img = images.chaser;
   chasers.forEach((c, i) => {
     c.bob = Math.sin((t / 200 + i) * 0.6) * 6;
     const x = player.x + c.offset;
     const y = state.groundY - player.h + c.bob;
+    const frameNum = state.animationFrame + 1; // 1-4
+    const img = images[`chaser${c.type}_${frameNum}`];
     if (img) {
       ctx.drawImage(img, x - 20, y - 10, player.w + 30, player.h + 20);
     } else {
@@ -321,6 +388,10 @@ window.addEventListener('resize', () => {
 
 window.addEventListener('keydown', (e) => {
   handleInputDown(e.key.toLowerCase());
+});
+
+window.addEventListener('keyup', (e) => {
+  handleInputUp(e.key.toLowerCase());
 });
 
 resize();
