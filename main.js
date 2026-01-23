@@ -1,4 +1,4 @@
-// Sidewalk Sprint - Enhanced Endless Runner
+// Sneaker Run - Enhanced Endless Runner
 
 const canvas = document.getElementById('game');
 const ctx = canvas.getContext('2d');
@@ -678,7 +678,7 @@ function drawStartScreen() {
   ctx.fillStyle = '#ffd166';
   ctx.font = `bold ${canvas.width * 0.06}px "Archivo Black", sans-serif`;
   ctx.textAlign = 'center';
-  ctx.fillText('SIDEWALK SPRINT', canvas.width / 2, canvas.height * 0.3);
+  ctx.fillText('SNEAKER RUN', canvas.width / 2, canvas.height * 0.3);
   
   // Instructions
   ctx.font = `${canvas.width * 0.025}px "Space Grotesk", sans-serif`;

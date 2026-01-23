@@ -669,7 +669,7 @@ function drawBench(ctx, x, y) {
 }
 
 // ============= GENERATE ALL ASSETS =============
-console.log('\n🎨 Generating Sidewalk Sprint sprites...\n');
+console.log('\n🎨 Generating Sneaker Run sprites...\n');
 
 // Protagonist
 console.log('👤 Protagonist (red hair, white shirt, blue jeans):');
