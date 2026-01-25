@@ -4,6 +4,7 @@ const canvas = document.getElementById('game');
 const ctx = canvas.getContext('2d');
 const distanceEl = document.getElementById('distance');
 const coinsEl = document.getElementById('coins');
+const bgm = document.getElementById('bgm');
 
 const ASSETS = {
   // Runner animation frames (4 frames)
@@ -111,7 +112,11 @@ const chasers = new Array(3).fill(0).map((_, i) => ({
   type: (i % 3) + 1,
   y: 0,
   targetY: 0,
-  vy: 0
+  vy: 0,
+  jumpCount: 0,
+  maxJumps: 2,
+  onGround: true,
+  jumpDelay: 0.3 + i * 0.05
 }));
 
 const obstacles = [];
@@ -143,6 +148,12 @@ function reset() {
   state.comboMultiplier = 1;
   state.lastCoinTime = 0;
   
+  // Start background music
+  bgm.currentTime = 0;
+  bgm.play().catch(() => {
+    // Autoplay might be blocked by browser, user interaction required
+  });
+  
   player.y = state.groundY - player.h;
   player.vy = 0;
   player.slideTimer = 0;
@@ -155,6 +166,8 @@ function reset() {
     c.y = state.groundY - player.h;
     c.targetY = c.y;
     c.vy = 0;
+    c.jumpCount = 0;
+    c.onGround = true;
   });
   
   obstacles.length = 0;
@@ -232,6 +245,9 @@ function updateMissteps(now) {
 function endGame(reason) {
   state.playing = false;
   state.reason = reason;
+  
+  // Stop background music
+  bgm.pause();
   
   // Update high scores
   if (state.distance > state.highScore) {
@@ -352,23 +368,35 @@ function isOnTopOf(entity, platform) {
 
 function updateChasers(dt) {
   chasers.forEach((c, i) => {
-    // Chasers follow player's vertical position with delay
-    c.targetY = player.y;
-    
-    const diff = c.targetY - c.y;
-    const followDelay = 0.15 + i * 0.08; // Staggered follow
-    
-    if (Math.abs(diff) > 5) {
-      c.vy += (diff > 0 ? 1 : -1) * state.gravity * dt * followDelay;
-    }
-    
-    c.vy *= 0.95; // Damping
+    // Apply gravity
+    c.vy += state.gravity * dt;
     c.y += c.vy * dt;
     
-    // Don't let chasers go below ground
+    // Ground collision
     if (c.y > state.groundY - player.h) {
       c.y = state.groundY - player.h;
       c.vy = 0;
+      c.jumpCount = 0;
+      c.onGround = true;
+    } else {
+      c.onGround = false;
+    }
+    
+    // Make chasers jump with delayed timing
+    // They jump when player jumps, but with a delay
+    if (player.vy < -100 && c.jumpCount < c.maxJumps && c.onGround) {
+      // Delay the jump based on chaser index
+      c.jumpDelay -= dt;
+      if (c.jumpDelay <= 0) {
+        c.vy = c.jumpCount === 0 ? -900 : -750;
+        c.jumpCount++;
+        c.jumpDelay = 0.3 + i * 0.05; // Reset delay for next jump
+      }
+    }
+    
+    // Reset delay timer if player is on ground
+    if (player.vy >= 0 && c.onGround) {
+      c.jumpDelay = 0.3 + i * 0.05;
     }
   });
 }
@@ -508,7 +536,7 @@ function updateDistance(dt) {
   
   // Transition backgrounds every 1500m (less frequent)
   const bgInterval = 1500;
-  const newBgIndex = Math.floor(state.distance / bgInterval) % 6;
+  const newBgIndex = Math.floor(state.distance / bgInterval) % 5;
   if (newBgIndex !== state.currentBgIndex) {
     state.currentBgIndex = newBgIndex;
   }
@@ -527,9 +555,9 @@ function drawBackground() {
   state.skylineShift = (state.skylineShift + skylineSpeed * 0.016) % canvas.width;
   state.curbShift = (state.curbShift + curbSpeed * 0.016) % canvas.width;
 
-  const bgNames = ['bgSuburb', 'bgCity', 'bgPark', 'bgIndustrial', 'bgDowntown', 'bgWaterfront'];
-  const skyBgName = bgNames[state.currentBgIndex];
-  const midBgName = bgNames[(state.currentBgIndex + 1) % 6];
+  const bgNames = ['bgSuburb', 'bgPark', 'bgIndustrial', 'bgDowntown', 'bgWaterfront'];
+  const skyBgName = bgNames[state.currentBgIndex % bgNames.length];
+  const midBgName = bgNames[(state.currentBgIndex + 1) % bgNames.length];
   
   const bgSky = images[skyBgName];
   const bgSub = images[midBgName];
@@ -539,14 +567,14 @@ function drawBackground() {
   ctx.fillStyle = '#0d1322';
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-  // Parallax backgrounds
+  // Parallax backgrounds - fill entire canvas
   if (bgSky) {
-    const scale = canvas.height / 400 * 0.8;
-    drawTiled(bgSky, state.skylineShift * 0.3, canvas.height - bgSky.height * scale - 180, scale);
+    const scale = canvas.height / 400 * 1.2;
+    drawTiled(bgSky, state.skylineShift * 0.3, canvas.height - bgSky.height * scale, scale);
   }
   if (bgSub) {
-    const scale = canvas.height / 400 * 0.6;
-    drawTiled(bgSub, state.skylineShift * 0.6, canvas.height - bgSub.height * scale - 100, scale);
+    const scale = canvas.height / 400 * 1.0;
+    drawTiled(bgSub, state.skylineShift * 0.6, canvas.height - bgSub.height * scale * 0.8, scale);
   }
 
   // Road/sidewalk
