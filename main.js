@@ -39,7 +39,6 @@ const ASSETS = {
   platform: 'assets/platform.webp',
   // Multiple background areas
   bgSuburb: 'assets/bg_suburb.webp',
-  bgCity: 'assets/bg_city.webp',
   bgPark: 'assets/bg_park.webp',
   bgIndustrial: 'assets/bg_industrial.webp',
   bgDowntown: 'assets/bg_downtown.webp',
@@ -173,9 +172,9 @@ function reset() {
   obstacles.length = 0;
   platforms.length = 0;
   powerups.length = 0;
-  spawnTimer = 0;
-  platformSpawnTimer = 2000;
-  powerupSpawnTimer = 3000;
+  spawnTimer = 1500; // Start with slight delay
+  platformSpawnTimer = 2500;
+  powerupSpawnTimer = 2500;
   
   updateHUD();
 }
@@ -200,9 +199,9 @@ function spawnObstacle() {
 }
 
 function spawnPlatform() {
-  const heights = [120, 180, 240];
+  const heights = [140, 200, 260];
   const height = heights[Math.floor(Math.random() * heights.length)];
-  const width = 150 + Math.random() * 100;
+  const width = 160 + Math.random() * 90;
   platforms.push({
     x: canvas.width + 50,
     y: state.groundY - height,
@@ -212,15 +211,15 @@ function spawnPlatform() {
 }
 
 function spawnPowerup() {
-  const types = ['coin', 'coin', 'coin', 'shield', 'speed']; // More coins
+  const types = ['coin', 'coin', 'coin', 'coin', 'shield', 'speed']; // More coins
   const type = types[Math.floor(Math.random() * types.length)];
-  const onPlatform = Math.random() > 0.5 && platforms.length > 0;
-  let y = state.groundY - 100 - Math.random() * 150;
+  const onPlatform = Math.random() > 0.6 && platforms.length > 0;
+  let y = state.groundY - 120 - Math.random() * 120;
   
   if (onPlatform) {
     const platform = platforms[platforms.length - 1];
-    if (platform && platform.x > canvas.width * 0.5) {
-      y = platform.y - 50;
+    if (platform && platform.x > canvas.width * 0.4) {
+      y = platform.y - 60;
     }
   }
   
@@ -287,7 +286,7 @@ function handleInputUp(key) {
 }
 
 function onGround() {
-  return player.y >= state.groundY - player.h - 1;
+  return player.onPlatform || player.y >= state.groundY - player.h - 2;
 }
 
 function canJump() {
@@ -295,7 +294,8 @@ function canJump() {
 }
 
 function jump() {
-  player.vy = player.jumpCount === 0 ? -900 : -750;
+  // First jump stronger, second jump slightly weaker
+  player.vy = player.jumpCount === 0 ? -950 : -800;
   player.jumpCount++;
   player.onPlatform = false;
   player.currentPlatform = null;
@@ -310,8 +310,10 @@ function updatePlayer(dt) {
   player.vy += state.gravity * dt;
   player.y += player.vy * dt;
   
-  // Check platform collisions
+  // Check platform collisions first
+  let landedOnPlatform = false;
   player.onPlatform = false;
+  
   for (const plat of platforms) {
     if (isOnTopOf(player, plat)) {
       player.y = plat.y - player.h;
@@ -319,12 +321,13 @@ function updatePlayer(dt) {
       player.onPlatform = true;
       player.currentPlatform = plat;
       player.jumpCount = 0;
+      landedOnPlatform = true;
       break;
     }
   }
   
-  // Ground collision
-  if (player.y > state.groundY - player.h) {
+  // Ground collision (only if not on platform)
+  if (!landedOnPlatform && player.y >= state.groundY - player.h) {
     player.y = state.groundY - player.h;
     player.vy = 0;
     player.jumpCount = 0;
@@ -351,19 +354,20 @@ function updatePlayer(dt) {
   }
   
   // Combo decay
-  if (Date.now() - state.lastCoinTime > 2000) {
-    state.comboMultiplier = Math.max(1, state.comboMultiplier - dt);
+  if (Date.now() - state.lastCoinTime > 2500) {
+    state.comboMultiplier = Math.max(1, state.comboMultiplier - dt * 0.8);
   }
 }
 
 function isOnTopOf(entity, platform) {
-  const wasAbove = entity.y + entity.h - entity.vy * 0.016 <= platform.y + 5;
-  const isNowBelow = entity.y + entity.h >= platform.y;
-  const withinX = entity.x + entity.w > platform.x && entity.x < platform.x + platform.w;
+  const prevY = entity.y - entity.vy * 0.016;
+  const wasAbove = prevY + entity.h <= platform.y + 10;
+  const isNowOnOrBelow = entity.y + entity.h >= platform.y - 5;
+  const withinX = entity.x + entity.w - 10 > platform.x && entity.x + 10 < platform.x + platform.w;
   const fallingDown = entity.vy >= 0;
+  const notTooDeep = entity.y + entity.h < platform.y + platform.h;
   
-  return wasAbove && isNowBelow && withinX && fallingDown && 
-         entity.y + entity.h <= platform.y + platform.h * 0.5;
+  return wasAbove && isNowOnOrBelow && withinX && fallingDown && notTooDeep;
 }
 
 function updateChasers(dt) {
@@ -373,7 +377,7 @@ function updateChasers(dt) {
     c.y += c.vy * dt;
     
     // Ground collision
-    if (c.y > state.groundY - player.h) {
+    if (c.y >= state.groundY - player.h) {
       c.y = state.groundY - player.h;
       c.vy = 0;
       c.jumpCount = 0;
@@ -382,21 +386,21 @@ function updateChasers(dt) {
       c.onGround = false;
     }
     
-    // Make chasers jump with delayed timing
-    // They jump when player jumps, but with a delay
-    if (player.vy < -100 && c.jumpCount < c.maxJumps && c.onGround) {
-      // Delay the jump based on chaser index
+    // Simplified chaser jumping - jump when player is airborne and they're on ground
+    if (!onGround() && c.onGround && c.jumpCount < c.maxJumps) {
+      // Delay based on chaser index for staggered effect
       c.jumpDelay -= dt;
       if (c.jumpDelay <= 0) {
-        c.vy = c.jumpCount === 0 ? -900 : -750;
+        c.vy = -850; // Consistent jump height
         c.jumpCount++;
-        c.jumpDelay = 0.3 + i * 0.05; // Reset delay for next jump
+        c.jumpDelay = 0.2 + i * 0.08; // Reset delay
       }
     }
     
-    // Reset delay timer if player is on ground
-    if (player.vy >= 0 && c.onGround) {
-      c.jumpDelay = 0.3 + i * 0.05;
+    // Reset delay when player lands
+    if (onGround() && c.onGround) {
+      c.jumpDelay = 0.2 + i * 0.08;
+      c.jumpCount = 0;
     }
   });
 }
@@ -432,25 +436,25 @@ function updateObstacles(dt) {
     powerups.shift();
   }
   
-  // Spawn new obstacles
+  // Spawn new obstacles with better spacing
   spawnTimer -= dt * 1000;
   if (spawnTimer <= 0) {
     spawnObstacle();
-    spawnTimer = 1200 + Math.random() * 1000;
+    spawnTimer = 1400 + Math.random() * 900;
   }
   
   // Spawn platforms
   platformSpawnTimer -= dt * 1000;
   if (platformSpawnTimer <= 0) {
     spawnPlatform();
-    platformSpawnTimer = 2500 + Math.random() * 2000;
+    platformSpawnTimer = 2800 + Math.random() * 1800;
   }
   
   // Spawn power-ups
   powerupSpawnTimer -= dt * 1000;
   if (powerupSpawnTimer <= 0) {
     spawnPowerup();
-    powerupSpawnTimer = 1500 + Math.random() * 2000;
+    powerupSpawnTimer = 1800 + Math.random() * 1700;
   }
 }
 
@@ -461,17 +465,23 @@ function checkCollisions(now) {
   for (const o of obstacles) {
     if (o.hit) continue;
     
-    // Check if colliding
-    if (p.x < o.x + o.w && p.x + p.w > o.x && p.y < o.y + o.h && p.y + p.h > o.y) {
+    // Add margin to collision box for better feel
+    const margin = 5;
+    const colliding = p.x + margin < o.x + o.w && 
+                      p.x + p.w - margin > o.x && 
+                      p.y + margin < o.y + o.h && 
+                      p.y + p.h > o.y;
+    
+    if (colliding) {
       // Check if landing on top (safe)
-      const landingOnTop = player.vy > 0 && 
-                           p.y + p.h - player.vy * 0.016 <= o.y + 10 &&
-                           p.y + p.h >= o.y;
+      const prevY = player.y - player.vy * 0.016;
+      const wasAbove = prevY + player.h <= o.y + 15;
+      const landingOnTop = player.vy > 0 && wasAbove && p.y + p.h >= o.y;
       
-      if (landingOnTop) {
-        // Safe landing on top - bounce off
+      if (landingOnTop && o.type !== 'car') {
+        // Safe landing on top - bounce off (not on cars)
         player.y = o.y - player.h;
-        player.vy = -400;
+        player.vy = -450;
         player.jumpCount = 0;
         continue;
       }
@@ -504,17 +514,17 @@ function checkCollisions(now) {
       
       if (pu.type === 'coin') {
         const timeSinceLast = Date.now() - state.lastCoinTime;
-        if (timeSinceLast < 1000) {
+        if (timeSinceLast < 1200) {
           state.comboMultiplier = Math.min(5, state.comboMultiplier + 0.5);
         }
         state.coins += Math.floor(1 * state.comboMultiplier);
         state.lastCoinTime = Date.now();
       } else if (pu.type === 'shield') {
         state.shieldActive = true;
-        state.shieldTimer = 8000;
+        state.shieldTimer = 7000;
       } else if (pu.type === 'speed') {
         state.speedBoostActive = true;
-        state.speedBoostTimer = 5000;
+        state.speedBoostTimer = 6000;
       }
       
       updateHUD();
@@ -560,36 +570,49 @@ function drawBackground() {
   const midBgName = bgNames[(state.currentBgIndex + 1) % bgNames.length];
   
   const bgSky = images[skyBgName];
-  const bgSub = images[midBgName];
+  const bgMid = images[midBgName];
   const groundY = state.groundY + 60;
 
-  // Dark background
-  ctx.fillStyle = '#0d1322';
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  // Sky gradient background
+  const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height * 0.7);
+  gradient.addColorStop(0, '#1a2332');
+  gradient.addColorStop(0.6, '#2a3645');
+  gradient.addColorStop(1, '#3a4658');
+  ctx.fillStyle = gradient;
+  ctx.fillRect(0, 0, canvas.width, canvas.height * 0.7);
 
-  // Parallax backgrounds - fill entire canvas
+  // Parallax backgrounds with better scaling and positioning
   if (bgSky) {
-    const scale = canvas.height / 400 * 1.2;
-    drawTiled(bgSky, state.skylineShift * 0.3, canvas.height - bgSky.height * scale, scale);
+    const scale = Math.max(canvas.width / bgSky.width, canvas.height / bgSky.height) * 0.8;
+    const yPos = canvas.height * 0.3;
+    ctx.globalAlpha = 0.7;
+    drawTiled(bgSky, state.skylineShift * 0.3, yPos, scale);
+    ctx.globalAlpha = 1;
   }
-  if (bgSub) {
-    const scale = canvas.height / 400 * 1.0;
-    drawTiled(bgSub, state.skylineShift * 0.6, canvas.height - bgSub.height * scale * 0.8, scale);
+  if (bgMid) {
+    const scale = Math.max(canvas.width / bgMid.width, canvas.height / bgMid.height) * 0.9;
+    const yPos = canvas.height * 0.5;
+    ctx.globalAlpha = 0.85;
+    drawTiled(bgMid, state.skylineShift * 0.6, yPos, scale);
+    ctx.globalAlpha = 1;
   }
 
-  // Road/sidewalk
-  ctx.fillStyle = '#1c2639';
+  // Road/sidewalk with better colors
+  ctx.fillStyle = '#2c3648';
   ctx.fillRect(0, groundY - 40, canvas.width, 120);
-  ctx.fillStyle = '#222c42';
+  ctx.fillStyle = '#1c2432';
   ctx.fillRect(0, groundY + 80, canvas.width, canvas.height - groundY - 80);
-  ctx.fillStyle = '#a0b3d4';
-  ctx.fillRect(0, groundY + 30, canvas.width, 4);
+  
+  // Road edge line
+  ctx.fillStyle = '#8a95a8';
+  ctx.fillRect(0, groundY + 30, canvas.width, 3);
 
-  // Moving lane lines
-  const laneGap = 90;
-  for (let x = -state.curbShift % (laneGap + 40); x < canvas.width; x += laneGap + 40) {
-    ctx.fillStyle = '#d6deed';
-    ctx.fillRect(x, groundY + 55, 40, 6);
+  // Moving lane lines with better spacing
+  const laneGap = 80;
+  const lineWidth = 35;
+  for (let x = -state.curbShift % (laneGap + lineWidth + 10); x < canvas.width; x += laneGap + lineWidth + 10) {
+    ctx.fillStyle = '#c8d4e5';
+    ctx.fillRect(x, groundY + 55, lineWidth, 5);
   }
 }
 
@@ -648,13 +671,14 @@ function drawPlayer() {
   
   // Draw speed lines
   if (state.speedBoostActive) {
-    ctx.strokeStyle = 'rgba(255, 255, 0, 0.4)';
-    ctx.lineWidth = 2;
-    for (let i = 0; i < 5; i++) {
-      const lineY = box.y + 20 + i * 20;
+    ctx.strokeStyle = 'rgba(255, 215, 0, 0.5)';
+    ctx.lineWidth = 3;
+    for (let i = 0; i < 6; i++) {
+      const lineY = box.y + 15 + i * 18;
+      const offset = Math.sin(Date.now() / 100 + i) * 5;
       ctx.beginPath();
-      ctx.moveTo(box.x - 30 - i * 10, lineY);
-      ctx.lineTo(box.x - 60 - i * 15, lineY);
+      ctx.moveTo(box.x - 25 - i * 8 + offset, lineY);
+      ctx.lineTo(box.x - 50 - i * 12 + offset, lineY);
       ctx.stroke();
     }
   }
@@ -770,7 +794,7 @@ function loop(timestamp) {
     updateObstacles(dt);
     checkCollisions(timestamp);
     updateDistance(dt);
-    state.speed = Math.min(state.speed + dt * 12, 750);
+    state.speed = Math.min(state.speed + dt * 10, 720);
   }
 
   drawBackground();
