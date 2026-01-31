@@ -393,13 +393,11 @@ function updateChasers(dt) {
       if (c.jumpDelay <= 0) {
         c.vy = -850; // Consistent jump height
         c.jumpCount++;
-        c.jumpDelay = 0.2 + i * 0.08; // Reset delay
+        c.jumpDelay = 0.3 + i * 0.05; // Reset delay
       }
-    }
-    
-    // Reset delay when player lands
-    if (onGround() && c.onGround) {
-      c.jumpDelay = 0.2 + i * 0.08;
+    } else if (onGround() && c.onGround) {
+      // Reset delay when player lands
+      c.jumpDelay = 0.3 + i * 0.05;
       c.jumpCount = 0;
     }
   });
@@ -842,6 +840,7 @@ window.addEventListener('keyup', (e) => {
 // Touch controls for mobile
 let touchStartY = 0;
 canvas.addEventListener('touchstart', (e) => {
+  e.preventDefault();
   touchStartY = e.touches[0].clientY;
   if (!state.started || !state.playing) {
     if (!state.started) reset();
@@ -849,18 +848,20 @@ canvas.addEventListener('touchstart', (e) => {
     return;
   }
   if (canJump()) jump();
-}, { passive: true });
+});
 
 canvas.addEventListener('touchmove', (e) => {
+  e.preventDefault();
   const touchY = e.touches[0].clientY;
   if (touchY - touchStartY > 50 && onGround()) {
     player.crouching = true;
   }
-}, { passive: true });
+});
 
-canvas.addEventListener('touchend', () => {
+canvas.addEventListener('touchend', (e) => {
+  e.preventDefault();
   player.crouching = false;
-}, { passive: true });
+});
 
 resize();
 loadAssets().then(() => requestAnimationFrame(loop));
